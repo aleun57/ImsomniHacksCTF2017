@@ -1,0 +1,34 @@
+1. In one of the FTP Frames there is a frame with "FTP-DATA" as its protocol. Click that and in that frame is a Private Key. I just assumed that maybe this is a TLS (same thing as SSL) Private key (Which it is). 
+
+2.  Take the raw input of that frame with the Private Key to a binary file (.bin). 
+
+	2.1 Click on the Frame
+	2.2 Go to the Middle Pane of your Wireshark Program (with information like "Frame 661", "Linux cooked capture", "IPv4", "TCP")
+	2.3 Click the "FTP Data (----BEGIN PRIVATE KEY..." line and right click it 
+	2.4 Click "Export Bytes" 
+
+2.5 Side Note: (If you filter by the Protocols, there are a few frames on SMTP. If you read those frames you see that there is a message from a "Rouge" person [172.31.36.141] that is breaking in and telling "GR-27" about it [52.214.142.175]) This information is useful for further steps.
+
+3. Convert the binary file into a PEM file (A format that Wireshark can read)
+	3.1 Download OpenSSL
+	3.2 Open Command Prompt and type in: 
+		openssl pkey -in ____ -outform PEM -____          
+		[first blank is the filename of your binary file, second is the name of the PEM file you are creating (has to end in .pem)]
+
+4. With the Private Key in PEM file format we can decode messages that were previously encrypted by TLS sent by people who use TLS encryption based on that Private Key (I assumed that Rouge was going to use it). Wireshark can do that for us so:
+	
+	4.1 Edit -> Preferences -> (Expand the "Protocols" label and then click "SSL")
+	4.2 Edit the "RSA Keys List"
+	4.3 Fill out the following fields:  
+		IP Address: 0.0.0.0 OR 172.17.42.1
+		Port: 0
+		Protocol: http (Since most of the time Rouge uses http-over-tls... also just roughly scanning the frames that was what was most common)
+		Key File: (Select your PEM File from the File Explorer)
+		Password: (Leave it blank)
+
+	4.4 Your Wireshark application should be momentarily blank since it is trying to apply 	the Key you supplied to every single frame in the capture. As long as 	Wireshark does this, you can disregard an error dialog that comes up. If Wireshark does not go blank for a bit ... something probably went wrong.  	
+
+5. Put the following string in the "Filter Bar" right on top of the table of frames: "ip.src== 172.31.36.141 and ip.dst == 52.214.142.175"
+
+6. From there I just was randomly looking at that list of packets. What helped was doing sorts by Protocol & Size. I ended up Sorting by Size and looking at the biggest frames there. On the 2nd Biggest Frame, there is something interesting. Select it (Frame # 2433). Go to the bottom of the Bottom Pane in Wireshark (Where all the hex numbers are located) and click on "Decrypted SSL data". If you scroll around you see the flag: INS{OkThatWasWay2Easy}
+
